@@ -1,0 +1,234 @@
+# arena-ranking on the Oracle A1 box: one Compose project at ~/apps/arena-ranking/, beside
+# its .env (mode 600) and riot.key (mode 600). The runbook is docs/deploy.md.
+#
+# Every service has a memory, CPU and pids limit, a healthcheck and json-file logs capped at
+# 10 MB times 3. cpu_shares 512 lets the box's other projects, at Docker's 1024, win any
+# contention. No env_file: each container gets only the names it needs, interpolated from .env.
+#
+# Networks: Caddy's external `web` (web only, alias arena-ranking-web), `edge` (web, api) and
+# `internal` (everything that talks to postgres or redis). The API's one published port is on
+# loopback, for the SSH tunnel to health and the queue dashboard.
+name: arena-ranking
+
+x-log: &log
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-backend-env: &backend_env
+  NODE_ENV: production
+  NODE_OPTIONS: --max-old-space-size=384
+  DATABASE_URL: postgres://arena:${POSTGRES_PASSWORD:?}@postgres:5432/arena
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+  REDIS_PREFIX: arena
+  RIOT_KEY_FILE: /run/secrets/riot.key
+  RIOT_RATE_PER_SECOND: ${RIOT_RATE_PER_SECOND:-20}
+  RIOT_RATE_PER_TWO_MINUTES: ${RIOT_RATE_PER_TWO_MINUTES:-100}
+  ARENA_QUEUE_IDS: ${ARENA_QUEUE_IDS:-1700,1710,1740,1750}
+  LADDER_MIN_GAMES: ${LADDER_MIN_GAMES:-10}
+  # Caddy and the web container both forward the client's address over Docker networks.
+  TRUSTED_PROXIES: loopback,uniquelocal
+  DASHBOARD_USER: ${DASHBOARD_USER:-}
+  DASHBOARD_PASS: ${DASHBOARD_PASS:-}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+# Long syntax, so a missing riot.key fails the start instead of becoming an empty directory.
+x-riot-key: &riot_key
+  type: bind
+  source: ./riot.key
+  target: /run/secrets/riot.key
+  read_only: true
+  bind: { create_host_path: false }
+
+services:
+  web:
+    image: arena-ranking-web:${IMAGE_TAG:?}
+    mem_limit: 384m
+    cpus: 0.5
+    cpu_shares: 512
+    pids_limit: 256
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256
+      # Server-rendered pages read the API here; the /api/* rewrite was baked in at build
+      # time with the same URL (apps/web/Dockerfile).
+      API_INTERNAL_URL: http://api:3001
+    networks:
+      edge: {}
+      web:
+        aliases: [arena-ranking-web]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    logging: *log
+
+  api:
+    image: arena-ranking-api:${IMAGE_TAG:?}
+    # The key file is the operator's, mode 600, so api and worker run as its owner.
+    user: "${APP_UID:?}:${APP_GID:?}"
+    mem_limit: 512m
+    cpus: 0.5
+    cpu_shares: 512
+    pids_limit: 256
+    restart: unless-stopped
+    environment: *backend_env
+    volumes: [*riot_key]
+    ports:
+      - 127.0.0.1:${API_TUNNEL_PORT:-3301}:3001
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    logging: *log
+
+  worker:
+    image: arena-ranking-worker:${IMAGE_TAG:?}
+    user: "${APP_UID:?}:${APP_GID:?}"
+    mem_limit: 512m
+    cpus: 0.5
+    cpu_shares: 512
+    pids_limit: 256
+    restart: unless-stopped
+    environment: *backend_env
+    volumes: [*riot_key]
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      # Healthy while a worker consumes every queue (src/worker/worker-health.ts).
+      test: ["CMD", "node", "dist/worker/worker-health.cli.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    logging: *log
+
+  postgres:
+    image: postgres:17.11-alpine
+    # Sized for the 2 GB limit.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=50
+    shm_size: 256m
+    mem_limit: 2g
+    cpus: 0.75
+    cpu_shares: 512
+    pids_limit: 256
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: arena
+      POSTGRES_DB: arena
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arena -d arena"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 2s
+    logging: *log
+
+  redis:
+    image: redis:7.4.11-alpine
+    # BullMQ needs noeviction: an evicted job key is a lost job.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?}", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    mem_limit: 256m
+    cpus: 0.25
+    cpu_shares: 512
+    pids_limit: 256
+    restart: unless-stopped
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes:
+      - redisdata:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 2s
+    logging: *log
+
+  # One-shot: bin/deploy.sh runs it before every `up`. Prints "migrate: up to date" when
+  # nothing is pending.
+  migrate:
+    image: arena-ranking-api:${IMAGE_TAG:?}
+    command: ["node", "dist/db/migrate.cli.js"]
+    profiles: [ops]
+    restart: "no"
+    mem_limit: 256m
+    cpus: 0.5
+    cpu_shares: 512
+    pids_limit: 256
+    environment:
+      DATABASE_URL: postgres://arena:${POSTGRES_PASSWORD:?}@postgres:5432/arena
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+    # A one-shot exits before any healthcheck would run.
+    healthcheck: { disable: true }
+    logging: *log
+
+  # One-shot rclone: bin/backup.sh and bin/restore.sh pass the subcommand. The R2 remote comes
+  # from .env through this environment, never from a command line.
+  backup:
+    image: rclone/rclone:1.75.1
+    profiles: [ops]
+    restart: "no"
+    mem_limit: 256m
+    cpus: 0.5
+    cpu_shares: 512
+    pids_limit: 256
+    environment:
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_REGION: auto
+      RCLONE_CONFIG_R2_ENDPOINT: https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      # A token scoped to Object Read & Write cannot check the bucket; uploads fail without this.
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+    volumes:
+      - ./state/backup:/backup
+    networks: [internal]
+    healthcheck: { disable: true }
+    logging: *log
+
+networks:
+  edge: {}
+  internal: {}
+  web:
+    external: true
+    name: web
+
+volumes:
+  pgdata: {}
+  redisdata: {}

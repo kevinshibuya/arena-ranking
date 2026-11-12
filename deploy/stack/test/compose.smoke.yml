@@ -1,0 +1,35 @@
+# For `pnpm stack:smoke` (bin/smoke.sh) on the Mac only; never shipped. Runs the fake upstream
+# as a service and points every upstream base URL at it, so the stack never calls Riot.
+services:
+  fake:
+    image: arena-ranking-fake-upstream:smoke
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 256
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9000/__admin/requests').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 1s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  api:
+    environment: &upstreams
+      RIOT_API_BASE_AMERICAS: http://fake:9000
+      RIOT_API_BASE_BR1: http://fake:9000
+      DDRAGON_BASE: http://fake:9000
+      CDRAGON_BASE: http://fake:9000
+    # The smoke reaches the API through the web container only.
+    ports: !reset []
+    depends_on:
+      fake: { condition: service_healthy }
+
+  worker:
+    environment: *upstreams
+    depends_on:
+      fake: { condition: service_healthy }

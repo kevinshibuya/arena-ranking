@@ -1,0 +1,27 @@
+# secrets
+.riot.key
+riot.key
+.env
+.env.*
+!.env.example
+
+# deps and build
+node_modules/
+dist/
+.next/
+.next-smoke/
+*.tsbuildinfo
+next-env.d.ts
+
+# test output
+.smoke-results/
+playwright-report/
+
+# local
+.DS_Store
+# a live Riot recording holds real players; only the anonymised copy is committed
+apps/fake-upstream/fixtures-recorded/
+deploy/stack/state/
+
+# written by next dev on every start
+apps/web/AGENTS.md

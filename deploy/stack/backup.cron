@@ -1,0 +1,3 @@
+# The nightly backup, installed on the box with `crontab -e` beside the existing lines
+# (docs/deploy.md, "Backups"). 03:00 UTC.
+0 3 * * * cd "$HOME/apps/arena-ranking" && bash bin/backup.sh >> state/backup.cron.log 2>&1

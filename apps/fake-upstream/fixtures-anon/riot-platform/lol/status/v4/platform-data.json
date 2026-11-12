@@ -1,0 +1,22 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json;charset=utf-8",
+    "x-app-rate-limit": "20:1,100:120",
+    "x-app-rate-limit-count": "1:1,1:120",
+    "x-method-rate-limit": "1000:60",
+    "x-method-rate-limit-count": "1:60"
+  },
+  "body": {
+    "id": "BR1",
+    "name": "Brazil",
+    "locales": [
+      "pt_BR"
+    ],
+    "maintenances": [],
+    "incidents": []
+  },
+  "derived": {
+    "note": "hand-authored: the platform status the key probe asks for"
+  }
+}

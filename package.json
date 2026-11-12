@@ -1,0 +1,44 @@
+{
+  "name": "arena-ranking",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "test": "jest",
+    "smoke": "tsx scripts/smoke.ts",
+    "db:up": "docker compose -f compose.dev.yaml up -d --wait",
+    "migrate": "pnpm --filter @arena/backend migrate",
+    "fixtures:check": "tsx scripts/fixtures-check.ts",
+    "record-fixtures": "tsx scripts/record-fixtures.ts && tsx scripts/anonymise-fixtures.ts",
+    "fixtures:anonymise": "tsx scripts/anonymise-fixtures.ts",
+    "record-static-fixtures": "tsx scripts/record-static-fixtures.ts",
+    "fixtures:derive": "tsx scripts/derive-fixtures.ts",
+    "riot:queues": "tsx scripts/riot-queues.ts",
+    "replay": "pnpm --filter @arena/backend replay",
+    "smoke:og": "tsx scripts/smoke-og.ts",
+    "images:build": "bash deploy/stack/bin/build-images.sh",
+    "stack:smoke": "bash deploy/stack/bin/smoke.sh",
+    "stack:restore-test": "bash deploy/stack/bin/restore-test.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "16.4.0",
+    "@swc/core": "^1.16.13",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "jest": "^30.5.2",
+    "pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}

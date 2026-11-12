@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json;charset=utf-8",
+    "x-app-rate-limit": "20:1,100:120",
+    "x-app-rate-limit-count": "1:1,1:120",
+    "x-method-rate-limit": "1000:60",
+    "x-method-rate-limit-count": "1:60"
+  },
+  "body": {
+    "puuid": "derived-zero-arena-0000000000000000000000000000000000000000000000000000000000000",
+    "gameName": "Sem Arena",
+    "tagLine": "BR1"
+  },
+  "derived": {
+    "note": "hand-authored: an account with no Arena match"
+  }
+}

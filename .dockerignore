@@ -1,0 +1,17 @@
+# Build context for the images (deploy/stack/bin/build-images.sh). Each Dockerfile
+# copies only the paths it needs; this keeps host builds and secrets out.
+**/node_modules
+**/dist
+**/.next
+**/.next-smoke
+**/*.tsbuildinfo
+**/next-env.d.ts
+.git
+.env
+.env.*
+.riot.key
+apps/fake-upstream/fixtures-recorded
+deploy
+docs
+.smoke-results
+playwright-report

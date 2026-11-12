@@ -1,0 +1,21 @@
+{
+  "status": 429,
+  "headers": {
+    "content-type": "application/json;charset=utf-8",
+    "retry-after": "7",
+    "x-rate-limit-type": "application",
+    "x-app-rate-limit": "20:1,100:120",
+    "x-app-rate-limit-count": "3:1,101:120",
+    "x-method-rate-limit": "2000:10",
+    "x-method-rate-limit-count": "3:10"
+  },
+  "body": {
+    "status": {
+      "message": "Rate limit exceeded",
+      "status_code": 429
+    }
+  },
+  "derived": {
+    "note": "hand-authored: an application rate limit hit, Retry-After 7 seconds"
+  }
+}

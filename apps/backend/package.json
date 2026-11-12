@@ -1,0 +1,40 @@
+{
+  "name": "@arena/backend",
+  "private": true,
+  "scripts": {
+    "build": "swc src -d dist --strip-leading-paths --ignore '**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx src/db/migrate.cli.ts",
+    "replay": "tsx src/modules/rating/replay.cli.ts",
+    "start:api": "node dist/main.api.js",
+    "start:worker": "node dist/main.worker.js"
+  },
+  "dependencies": {
+    "@bull-board/api": "^9.10.4",
+    "@bull-board/express": "^9.10.4",
+    "@bull-board/nestjs": "^9.10.4",
+    "@nestjs/bullmq": "^11.0.5",
+    "@nestjs/common": "^11.2.7",
+    "@nestjs/core": "^11.2.7",
+    "@nestjs/platform-express": "^11.2.7",
+    "bullmq": "^6.3.11",
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.0.0",
+    "nestjs-pino": "^5.3.1",
+    "openskill": "^5.0.1",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@arena/fake-upstream": "workspace:*",
+    "@arena/shared": "workspace:*",
+    "@nestjs/testing": "^11.2.7",
+    "@swc/cli": "^0.8.1",
+    "@types/express": "^5.0.6",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1"
+  }
+}

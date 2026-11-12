@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "x-app-rate-limit": "100:120,20:1",
+    "x-app-rate-limit-count": "1:120,1:1",
+    "x-method-rate-limit": "1000:60",
+    "x-method-rate-limit-count": "1:60"
+  },
+  "body": {
+    "puuid": "anon-player-0001-0000000000000000000000000000000000000000000000000000000000000",
+    "gameName": "Player0001",
+    "tagLine": "ANON"
+  }
+}

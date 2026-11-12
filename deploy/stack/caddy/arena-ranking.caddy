@@ -1,0 +1,15 @@
+# arena-ranking's site block, appended to the box's shared ~/apps/caddy/Caddyfile with
+# <hostname>, <user> and <hash> filled in on the box only (docs/deploy.md, "Caddy").
+# <hash> comes from `sudo docker exec caddy caddy hash-password --plaintext '<password>'`.
+#
+# Basic auth: Riot forbids public consumption on a development or personal key, so the whole
+# site sits behind it. Remove the basic_auth block only once Riot grants a production key.
+<hostname> {
+	encode zstd gzip
+	basic_auth {
+		<user> <hash>
+	}
+	# The queue dashboard is for the operator, through the SSH tunnel only.
+	respond /api/ops/* 404
+	reverse_proxy arena-ranking-web:3000
+}
